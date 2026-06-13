@@ -1,0 +1,23 @@
+{
+  "name": "agent-loop-setup",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "check-types": "pnpm -r check-types"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@agent-loop-setup/config": "workspace:*",
+    "typescript": "^6"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
