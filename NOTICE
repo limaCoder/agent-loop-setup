@@ -1,0 +1,9 @@
+Agent Loop Setup
+Copyright 2026 Mario Augusto de Lima
+
+This project includes original workflow design by Mario Lima and is inspired by agent skill patterns and workflows from:
+
+- Matt Pocock's agent skills project, especially the write-a-skill, grill-with-docs, to-prd, to-issues, diagnose, and teach skills.
+- Flagrare's agent skills and testing philosophy, especially codebase-explore, testing-philosophy, atdd-plan, and open-pr.
+
+No endorsement by the upstream authors is implied unless explicitly stated.
