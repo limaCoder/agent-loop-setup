@@ -60,12 +60,10 @@ The proprietary skills in this repo were designed to be created with Matt Pocock
 
 This setup is intended to work well alongside Matt-style skills such as:
 
-* `write-a-skill`
 * `grill-with-docs`
 * `to-prd`
 * `to-issues`
 * `diagnose`
-* `teach`
 
 In this workflow, Matt-style planning skills can be used before the proprietary execution loop:
 
@@ -88,7 +86,6 @@ Special thanks to Flagrare, who is also a friend, for the ideas behind:
 * `codebase-explore`
 * `testing-philosophy`
 * `atdd-plan`
-* `open-pr`
 
 This repository’s proprietary `atdd-plan-for-issue` skill is directly inspired by Flagrare’s `atdd-plan`, but adapted to an issue-tracker workflow.
 
@@ -183,7 +180,9 @@ This repo
 
 ## Core workflow
 
-The workflow is built around Linear, but the concepts can be adapted to another issue tracker.
+The workflow is built around Linear, but the concepts can be adapted to another issue tracker. Use setup-matt-pocock-skills from https://www.skills.sh/mattpocock/skills/setup-matt-pocock-skills to change the issue tracker.
+
+Below is the list of statuses and labels to create in your issue tracker:
 
 ### Statuses
 
@@ -199,7 +198,7 @@ Canceled
 Duplicate
 ```
 
-### Triage labels
+### Labels
 
 ```txt
 needs-triage
@@ -207,11 +206,7 @@ needs-info
 ready-for-agent
 ready-for-human
 wontfix
-```
 
-### Context labels
-
-```txt
 needs-atdd
 requires-briefing
 frontend
@@ -242,16 +237,12 @@ Some skills are expected to exist in the broader agent environment and are refer
 
 ```txt
 External / upstream skills:
-- write-a-skill
 - grill-with-docs
 - to-prd
 - to-issues
 - diagnose
-- teach
 - codebase-explore
 - testing-philosophy
-- atdd-plan
-- open-pr
 ```
 
 This repo provides the project-specific execution loop:
@@ -543,7 +534,6 @@ skills/open-pr-with-briefing
 Also make sure the external/upstream skills you rely on are available in your agent environment:
 
 ```txt
-write-a-skill
 grill-with-docs
 to-prd
 to-issues
@@ -733,21 +723,6 @@ Agents own:
 * producing reviewable PRs
 
 The loop is designed to make agent work boring, inspectable, and reversible.
-
-## Current maturity
-
-This is a v1 setup.
-
-It is intended to be copied into real projects, used, and refined as the workflow reveals friction.
-
-Expected future improvements:
-
-* project-specific hook profiles
-* stronger CI templates
-* richer Linear automation
-* better PR briefing rendering
-* optional installer script
-* examples of fully prepared Linear issues
 
 ## License
 
