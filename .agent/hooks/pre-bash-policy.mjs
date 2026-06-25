@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 
 const input = JSON.parse(await readStdin());
 const command = input?.tool_input?.command ?? "";
@@ -12,12 +12,20 @@ function block(reason) {
 
 function runQualityGate() {
   try {
-    execFileSync("node", [".agent/hooks/quality-gate.mjs"], {
-      stdio: "inherit",
-      cwd: process.cwd(),
-    });
+    if (process.env.PRE_BASH_QUALITY_GATE_COMMAND) {
+      execSync(process.env.PRE_BASH_QUALITY_GATE_COMMAND, {
+        stdio: "inherit",
+        cwd: process.cwd(),
+        shell: true,
+      });
+    } else {
+      execFileSync("node", [".agent/hooks/quality-gate.mjs"], {
+        stdio: "inherit",
+        cwd: process.cwd(),
+      });
+    }
   } catch {
-    block("Quality gate failed. Fix checks before opening/updating a PR.");
+    block("Quality gate failed. Fix checks before opening/updating/merging a PR.");
   }
 }
 
@@ -40,7 +48,7 @@ for (const pattern of dangerousPatterns) {
   }
 }
 
-if (/\bgh\s+pr\s+create\b/.test(command)) {
+if (/\bgh\s+pr\s+(create|merge)\b/.test(command)) {
   runQualityGate();
 }
 

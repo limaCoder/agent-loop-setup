@@ -170,8 +170,16 @@ This repo
 │       ├── domain.md
 │       ├── issue-tracker.md
 │       └── triage-labels.md
+├── commands/
+│   └── drain-ready-queue.md
+├── scripts/
+│   ├── drain-ready-queue-runner.mjs
+│   ├── fake-agent.mjs
+│   ├── test-drain-ready-queue-runner.mjs
+│   └── test-pre-bash-policy.mjs
 └── skills/
     ├── atdd-plan-for-issue/
+    ├── drain-ready-issues/
     ├── execute-ready-issue/
     ├── open-pr-with-briefing/
     ├── setup-test-suite/
@@ -254,6 +262,7 @@ Proprietary skills in this repo:
 - take-next-issue
 - execute-ready-issue
 - open-pr-with-briefing
+- drain-ready-issues
 ```
 
 The proprietary skills are designed to be conservative: they should prefer stopping and asking for help over inventing product behavior, bypassing checks, or expanding scope.
@@ -372,6 +381,87 @@ Active → PR Open
 
 It does not implement feature code or merge PRs.
 
+### `drain-ready-issues`
+
+Runs the outer queue-drain loop by composing `take-next-issue`, `execute-ready-issue`, PR checks/merge, and Linear `Done`.
+
+It does not select issues directly. `take-next-issue` remains the only issue selector and claimer.
+
+Manual single-session drain:
+
+```txt
+/drain-ready-queue RUN_CONTEXT=local WORKSPACE_MODE=same-thread MERGE=true
+```
+
+Fresh-session-per-issue runner mode requires `MAX_ISSUES=1`:
+
+```txt
+/drain-ready-queue RUN_CONTEXT=local WORKSPACE_MODE=same-thread MERGE=true MAX_ISSUES=1
+```
+
+The drain command must end with exactly one sentinel:
+
+```txt
+DRAIN_QUEUE_EMPTY
+DRAIN_SESSION_COMPLETE
+DRAIN_NEEDS_HUMAN
+DRAIN_ABORT
+```
+
+Sentinel meanings:
+
+* `DRAIN_QUEUE_EMPTY`: `take-next-issue` found no eligible issue; stop successfully.
+* `DRAIN_SESSION_COMPLETE`: the current session completed its allowed work; spawn the next clean session.
+* `DRAIN_NEEDS_HUMAN`: execution hit a human-input stop condition; stop and report.
+* `DRAIN_ABORT`: infrastructure, tool, Git, GitHub, Linear, CI, merge, or local environment failed; stop and report.
+
+## Fresh-session queue runner
+
+The local runner exists only to create a real context boundary between issues. It does not query Linear, does not choose work, and does not replace `take-next-issue`.
+
+Run the default Codex fresh-session-per-issue loop:
+
+```bash
+node scripts/drain-ready-queue-runner.mjs
+```
+
+Limit iterations:
+
+```bash
+MAX_ITERATIONS=5 node scripts/drain-ready-queue-runner.mjs
+```
+
+The default mode uses:
+
+```txt
+codex exec "<prompt>"
+```
+
+Claude can be used with a one-shot print mode:
+
+```bash
+AGENT_MODE=claude-print AGENT_BIN=claude node scripts/drain-ready-queue-runner.mjs
+```
+
+Claude command flags may need local adjustment depending on the installed CLI. Do not use resume or continue modes for this runner.
+
+Validate without calling Codex, Claude, Linear, GitHub, or any real LLM:
+
+```bash
+FAKE_AGENT_SENTINELS=DRAIN_SESSION_COMPLETE,DRAIN_QUEUE_EMPTY \
+AGENT_MODE=fake \
+AGENT_BIN=node \
+FAKE_AGENT_SCRIPT=scripts/fake-agent.mjs \
+node scripts/drain-ready-queue-runner.mjs
+```
+
+Run the offline validation suite:
+
+```bash
+node scripts/test-drain-ready-queue-runner.mjs
+node scripts/test-pre-bash-policy.mjs
+```
+
 ## Hooks
 
 Hooks live in `.agent/hooks` and are registered for Claude and Codex.
@@ -411,13 +501,12 @@ Blocks dangerous or out-of-scope commands such as:
 * `git reset --hard`
 * `git clean -fd`
 * `git push --force`
-* `gh pr merge`
 * `rm -rf /`
 * `sudo`
 * `curl | sh`
 * `wget | sh`
 
-It also runs the quality gate before `gh pr create`.
+It also runs the quality gate before `gh pr create` and `gh pr merge`.
 
 ### `pre-file-edit-policy.mjs`
 
@@ -458,7 +547,7 @@ If frontend-like files are touched, it writes:
 
 ### `quality-gate.mjs`
 
-Runs before PR creation.
+Runs before PR creation and PR merge.
 
 It checks available repo scripts such as:
 
