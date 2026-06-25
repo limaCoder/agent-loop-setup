@@ -38,7 +38,7 @@ Does NOT have label: ready-for-human
 Does NOT have label: wontfix
 Does NOT have a linked open PR
 Does NOT have an active claim/lock comment from another agent
-Blocked by: None — can start immediately
+Blocked by: no unresolved blocker issues — completed blockers do not block
 ```
 
 If multiple match, choose the **oldest** eligible issue. If the user gave a specific issue key, validate **that issue only**.
@@ -52,7 +52,16 @@ If multiple match, choose the **oldest** eligible issue. If the user gave a spec
 
 ### Step 2: Validate eligibility
 
-Reject (skip to next, or stop) if any disqualifier from **Eligible issue criteria** holds: a blocking label, a linked open PR, blocked-by another issue, or an active claim comment from another agent.
+Reject (skip to next, or stop) if any disqualifier from **Eligible issue criteria** holds: a blocking label, a linked open PR, an unresolved blocker issue, or an active claim comment from another agent.
+
+When checking Linear blocked-by relationships:
+
+1. Fetch each blocker issue, not just the relationship name/key.
+2. Treat blockers in a completed terminal state such as `Done`, `Canceled`, or `Duplicate` as resolved.
+3. Treat blockers in active or incomplete states such as `Backlog`, `Planning`, `Ready for Agent`, `Active`, `Needs Human`, or `PR Open` as unresolved.
+4. Only unresolved blockers disqualify the candidate.
+
+If all blocked-by relationships point to resolved blocker issues, continue validating the candidate instead of skipping it.
 
 ### Step 3: Validate required sections
 
@@ -166,7 +175,8 @@ Run atdd-plan-for-issue to make it ready.
 - silently skip missing required sections
 - claim issues with `needs-info`, `needs-atdd`, `ready-for-human`, or `wontfix`
 - claim issues linked to an open PR
-- claim issues blocked by another issue
+- claim issues blocked by an unresolved issue
+- skip issues only because they have blocked-by relationships whose blocker issues are already resolved
 - claim issues already actively claimed by another agent
 - run the printed `/goal` command
 
