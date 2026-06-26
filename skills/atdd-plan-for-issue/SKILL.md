@@ -69,7 +69,7 @@ Insert/update the sections below (see template). Apply `testing-philosophy`:
 - Prefer **public-surface** tests over implementation-detail tests.
 - Prefer **integration** tests for behavior that crosses boundaries; use **unit** tests only for pure logic or isolated decision rules.
 - **Mock only external boundaries** (network, clock, disk, third-party service). Do **not** mock internal collaborators by default → `Internal collaborators to mock: none`.
-- For user-facing work, at least one test exercises the critical happy path end-to-end (e2e floor).
+- For user-facing work, at least one test exercises the critical happy path end-to-end (not with E2E test suite, but with Chrome DevTools MCP (preferred) or Playwright/browser automation MCP).
 
 ### Step 5: Infer required commands
 
