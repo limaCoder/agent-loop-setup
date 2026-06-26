@@ -9,6 +9,7 @@ import path from "node:path";
 const root = process.cwd();
 const runner = path.join(root, "scripts/drain-ready-queue-runner.mjs");
 const fakeAgent = path.join(root, "scripts/fake-agent.mjs");
+const baseEnv = sanitizedEnv();
 
 const cases = [
   {
@@ -83,7 +84,7 @@ for (const testCase of cases) {
   const result = spawnSync(process.execPath, [runner], {
     cwd: root,
     env: {
-      ...process.env,
+      ...baseEnv,
       AGENT_MODE: "fake",
       AGENT_BIN: process.execPath,
       FAKE_AGENT_SCRIPT: fakeAgent,
@@ -107,8 +108,68 @@ for (const testCase of cases) {
   );
 }
 
+const dryRun = spawnSync(process.execPath, [runner], {
+  cwd: root,
+  env: {
+    ...baseEnv,
+    DRY_RUN: "true",
+    AGENT_MODE: "codex-exec",
+    AGENT_BIN: "codex",
+  },
+  encoding: "utf8",
+});
+
+const dryRunOutput = `${dryRun.stdout}${dryRun.stderr}`;
+assert.equal(dryRun.status, 0, dryRunOutput);
+assert.match(
+  dryRunOutput,
+  /codex -a never exec -s danger-full-access/,
+  dryRunOutput,
+);
+assert.match(
+  dryRunOutput,
+  /Read commands\/drain-ready-queue\.md and carry out its instruction exactly once\./,
+  dryRunOutput,
+);
+
+const claudeDryRun = spawnSync(process.execPath, [runner], {
+  cwd: root,
+  env: {
+    ...baseEnv,
+    DRY_RUN: "true",
+    AGENT_MODE: "claude-print",
+    AGENT_BIN: "claude",
+  },
+  encoding: "utf8",
+});
+
+const claudeDryRunOutput = `${claudeDryRun.stdout}${claudeDryRun.stderr}`;
+assert.equal(claudeDryRun.status, 0, claudeDryRunOutput);
+assert.match(
+  claudeDryRunOutput,
+  /claude -p --permission-mode bypassPermissions/,
+  claudeDryRunOutput,
+);
+assert.match(
+  claudeDryRunOutput,
+  /Do not execute \/drain-ready-queue RUN_CONTEXT=local WORKSPACE_MODE=same-thread MERGE=true MAX_ISSUES=1 as a shell command or filesystem path\./,
+  claudeDryRunOutput,
+);
+
 console.log("drain-ready-queue runner fake-agent tests passed");
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sanitizedEnv() {
+  const env = { ...process.env };
+
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("CODEX_")) {
+      delete env[key];
+    }
+  }
+
+  return env;
 }

@@ -419,6 +419,10 @@ Sentinel meanings:
 
 The local runner exists only to create a real context boundary between issues. It does not query Linear, does not choose work, and does not replace `take-next-issue`.
 
+The spawned agent must interpret the repo command from `commands/drain-ready-queue.md`. It should not try to run `/drain-ready-queue ...` as a literal shell command path.
+
+The runner also strips inherited `CODEX_*` environment variables before spawning each child session so a fresh non-interactive run does not accidentally inherit the current Codex desktop/session harness.
+
 Run the default Codex fresh-session-per-issue loop:
 
 ```bash
@@ -434,13 +438,33 @@ MAX_ITERATIONS=5 node scripts/drain-ready-queue-runner.mjs
 The default mode uses:
 
 ```txt
-codex exec "<prompt>"
+codex exec -a never -s danger-full-access "<prompt>"
 ```
+
+This is intentional: the spawned session needs to create branches, write `.git/index.lock`, run hooks, and merge when allowed. If you need a tighter setup for debugging, override it with `AGENT_APPROVAL` and `AGENT_SANDBOX`.
 
 Claude can be used with a one-shot print mode:
 
 ```bash
 AGENT_MODE=claude-print AGENT_BIN=claude node scripts/drain-ready-queue-runner.mjs
+```
+
+The runner uses:
+
+```txt
+claude -p --permission-mode bypassPermissions "<prompt>"
+```
+
+If your local Claude setup still blocks required writes, enable the stronger mode:
+
+```bash
+CLAUDE_SKIP_PERMISSIONS=true AGENT_MODE=claude-print AGENT_BIN=claude node scripts/drain-ready-queue-runner.mjs
+```
+
+That adds:
+
+```txt
+--dangerously-skip-permissions
 ```
 
 Claude command flags may need local adjustment depending on the installed CLI. Do not use resume or continue modes for this runner.

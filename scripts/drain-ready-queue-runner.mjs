@@ -9,13 +9,19 @@ const SENTINELS = [
   "DRAIN_NEEDS_HUMAN",
   "DRAIN_ABORT",
 ];
+const NEWLINE_PATTERN = /\r?\n/;
 
 const DEFAULT_DRAIN_COMMAND =
   "/drain-ready-queue RUN_CONTEXT=local WORKSPACE_MODE=same-thread MERGE=true MAX_ISSUES=1";
 
 const config = {
+  claudePermissionMode:
+    process.env.CLAUDE_PERMISSION_MODE ?? "bypassPermissions",
+  claudeSkipPermissions: process.env.CLAUDE_SKIP_PERMISSIONS === "true",
   agentBin: process.env.AGENT_BIN ?? "codex",
   agentMode: process.env.AGENT_MODE ?? "codex-exec",
+  agentApproval: process.env.AGENT_APPROVAL ?? "never",
+  agentSandbox: process.env.AGENT_SANDBOX ?? "danger-full-access",
   drainCommand: process.env.DRAIN_COMMAND ?? DEFAULT_DRAIN_COMMAND,
   dryRun: process.env.DRY_RUN === "true",
   maxIterations: Number.parseInt(process.env.MAX_ITERATIONS ?? "10", 10),
@@ -42,7 +48,9 @@ for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
   const result = await runChild(childConfig.command, childConfig.args);
 
   if (result.code !== 0) {
-    console.error(`[drain-runner] agent process exited with code ${result.code}`);
+    console.error(
+      `[drain-runner] agent process exited with code ${result.code}`,
+    );
     process.exit(result.code ?? 2);
   }
 
@@ -60,7 +68,9 @@ for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
   }
 
   if (sentinel === "DRAIN_SESSION_COMPLETE") {
-    console.log("[drain-runner] Session completed allowed work; spawning next clean session.");
+    console.log(
+      "[drain-runner] Session completed allowed work; spawning next clean session.",
+    );
     continue;
   }
 
@@ -75,16 +85,20 @@ for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
   }
 }
 
-console.error(`[drain-runner] MAX_ITERATIONS reached (${config.maxIterations}); stopping.`);
+console.error(
+  `[drain-runner] MAX_ITERATIONS reached (${config.maxIterations}); stopping.`,
+);
 process.exit(2);
 
 function buildPrompt(drainCommand) {
   return `You are running one clean agent session for the agent-loop-setup queue runner.
 
-Invoke this command exactly once:
+Interpret this repo command exactly once using the repository command definition at commands/drain-ready-queue.md:
 ${drainCommand}
 
 Rules:
+- Do not execute ${drainCommand} as a shell command or filesystem path.
+- Read commands/drain-ready-queue.md and carry out its instruction exactly once.
 - Let take-next-issue select/claim work.
 - Do not query Linear outside the skill.
 - Do not pick work manually.
@@ -94,25 +108,46 @@ Rules:
 - The external runner will spawn the next clean session.`;
 }
 
-function buildChildConfig({ agentBin, agentMode }, prompt) {
+function buildChildConfig(
+  {
+    agentApproval,
+    agentBin,
+    agentMode,
+    agentSandbox,
+    claudePermissionMode,
+    claudeSkipPermissions,
+  },
+  prompt,
+) {
   if (agentMode === "codex-exec") {
     return {
       command: agentBin,
-      args: ["exec", prompt],
+      args: ["-a", agentApproval, "exec", "-s", agentSandbox, prompt],
     };
   }
 
   if (agentMode === "claude-print") {
+    const args = ["-p", "--permission-mode", claudePermissionMode];
+
+    if (claudeSkipPermissions) {
+      args.push("--dangerously-skip-permissions");
+    }
+
+    args.push(prompt);
+
     return {
       command: agentBin,
-      args: ["-p", prompt],
+      args,
     };
   }
 
   if (agentMode === "fake") {
     return {
       command: agentBin,
-      args: [process.env.FAKE_AGENT_SCRIPT ?? path.join("scripts", "fake-agent.mjs"), prompt],
+      args: [
+        process.env.FAKE_AGENT_SCRIPT ?? path.join("scripts", "fake-agent.mjs"),
+        prompt,
+      ],
     };
   }
 
@@ -124,7 +159,7 @@ function runChild(command, args) {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: process.cwd(),
-      env: process.env,
+      env: buildChildEnv(),
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -158,7 +193,7 @@ function runChild(command, args) {
 function findLastSentinel(output) {
   let found = null;
 
-  for (const line of output.split(/\r?\n/)) {
+  for (const line of output.split(NEWLINE_PATTERN)) {
     const trimmed = line.trim();
     if (SENTINELS.includes(trimmed)) {
       found = trimmed;
@@ -166,4 +201,16 @@ function findLastSentinel(output) {
   }
 
   return found;
+}
+
+function buildChildEnv() {
+  const env = { ...process.env };
+
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("CODEX_")) {
+      delete env[key];
+    }
+  }
+
+  return env;
 }
