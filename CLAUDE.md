@@ -59,7 +59,7 @@ Multi-context repo — CONTEXT-MAP.md at root points to per-context CONTEXT.md f
 For database integration tests, run `pnpm test:integration:podman` instead of `pnpm test:integration`. The local development environment uses Podman, and the Podman script configures Testcontainers correctly for the ephemeral PostgreSQL database.
 
 If the change is user-facing, the agent must also run the highest-practical smoke/e2e check:
-- UI: Playwright happy path
+- UI: Chrome DevTools MCP happy path against the running app when available. If Chrome DevTools MCP is unavailable, fall back to Playwright/browser automation MCP. This means external browser automation tooling by default, not the repo's Playwright test suite, unless the issue or `### Required commands` explicitly calls for project Playwright tests.
 - Backend: HTTP against running service with real test DB
 
 Do not chase coverage percentage.

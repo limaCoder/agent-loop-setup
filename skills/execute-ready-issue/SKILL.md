@@ -114,8 +114,11 @@ If a required command is unavailable or broken due to repo setup, stop and move 
 1. Read relevant product/design docs if present.
 2. Use the Impeccable workflow if available; respect the existing design system/components.
 3. Avoid visual regressions.
-4. Capture screenshots, or explain why screenshots are not practical.
-5. Add human QA steps to the PR briefing.
+4. For interactive UI validation, use Chrome DevTools MCP first when available to exercise the running app and capture screenshots.
+5. If Chrome DevTools MCP is unavailable, use Playwright/browser MCP as the fallback browser automation tooling.
+6. Do not assume "Playwright" means the repo's Playwright test suite unless the issue's `### Required commands` or ATDD plan explicitly names a project Playwright command such as `pnpm playwright test` or `pnpm test:e2e`.
+7. Capture screenshots, or explain why screenshots are not practical.
+8. Add human QA steps to the PR briefing.
 
 If the issue has `ui`, treat visual quality as part of the acceptance criteria.
 
