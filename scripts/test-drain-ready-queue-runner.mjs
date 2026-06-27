@@ -131,6 +131,11 @@ assert.match(
   /Read commands\/drain-ready-queue\.md and carry out its instruction exactly once\./,
   dryRunOutput,
 );
+assert.match(
+  dryRunOutput,
+  /Do not narrate tool choice, markdown-vs-code decisions, or file-reading strategy\./,
+  dryRunOutput,
+);
 
 const claudeDryRun = spawnSync(process.execPath, [runner], {
   cwd: root,
@@ -147,12 +152,17 @@ const claudeDryRunOutput = `${claudeDryRun.stdout}${claudeDryRun.stderr}`;
 assert.equal(claudeDryRun.status, 0, claudeDryRunOutput);
 assert.match(
   claudeDryRunOutput,
-  /claude -p --permission-mode bypassPermissions/,
+  /claude -p --permission-mode bypassPermissions --output-format stream-json --include-partial-messages --verbose --no-session-persistence/,
   claudeDryRunOutput,
 );
 assert.match(
   claudeDryRunOutput,
   /Do not execute \/drain-ready-queue RUN_CONTEXT=local WORKSPACE_MODE=same-thread MERGE=true MAX_ISSUES=1 as a shell command or filesystem path\./,
+  claudeDryRunOutput,
+);
+assert.match(
+  claudeDryRunOutput,
+  /Only print meaningful execution status and the final sentinel\./,
   claudeDryRunOutput,
 );
 

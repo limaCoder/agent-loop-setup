@@ -45,7 +45,11 @@ for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
     process.exit(0);
   }
 
-  const result = await runChild(childConfig.command, childConfig.args);
+  const result = await runChild(
+    childConfig.command,
+    childConfig.args,
+    childConfig.outputMode,
+  );
 
   if (result.code !== 0) {
     console.error(
@@ -99,6 +103,10 @@ ${drainCommand}
 Rules:
 - Do not execute ${drainCommand} as a shell command or filesystem path.
 - Read commands/drain-ready-queue.md and carry out its instruction exactly once.
+- Treat commands/drain-ready-queue.md as plain markdown instructions, not code.
+- Do not narrate tool choice, markdown-vs-code decisions, or file-reading strategy.
+- Read the command doc and any required local skill files silently, then continue with execution.
+- Only print meaningful execution status and the final sentinel.
 - Let take-next-issue select/claim work.
 - Do not query Linear outside the skill.
 - Do not pick work manually.
@@ -123,11 +131,21 @@ function buildChildConfig(
     return {
       command: agentBin,
       args: ["-a", agentApproval, "exec", "-s", agentSandbox, prompt],
+      outputMode: "plain-text",
     };
   }
 
   if (agentMode === "claude-print") {
-    const args = ["-p", "--permission-mode", claudePermissionMode];
+    const args = [
+      "-p",
+      "--permission-mode",
+      claudePermissionMode,
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--no-session-persistence",
+    ];
 
     if (claudeSkipPermissions) {
       args.push("--dangerously-skip-permissions");
@@ -138,6 +156,7 @@ function buildChildConfig(
     return {
       command: agentBin,
       args,
+      outputMode: "claude-stream-json",
     };
   }
 
@@ -148,6 +167,7 @@ function buildChildConfig(
         process.env.FAKE_AGENT_SCRIPT ?? path.join("scripts", "fake-agent.mjs"),
         prompt,
       ],
+      outputMode: "plain-text",
     };
   }
 
@@ -155,7 +175,7 @@ function buildChildConfig(
   process.exit(2);
 }
 
-function runChild(command, args) {
+function runChild(command, args, outputMode = "plain-text") {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: process.cwd(),
@@ -164,9 +184,19 @@ function runChild(command, args) {
     });
 
     let output = "";
+    let stdoutBuffer = "";
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
+      if (outputMode === "claude-stream-json") {
+        stdoutBuffer += text;
+        stdoutBuffer = flushClaudeJsonLines(stdoutBuffer, (assistantText) => {
+          output += assistantText;
+          process.stdout.write(assistantText);
+        });
+        return;
+      }
+
       output += text;
       process.stdout.write(text);
     });
@@ -185,6 +215,12 @@ function runChild(command, args) {
     });
 
     child.on("close", (code) => {
+      if (outputMode === "claude-stream-json" && stdoutBuffer.trim()) {
+        flushClaudeJsonLines(`${stdoutBuffer}\n`, (assistantText) => {
+          output += assistantText;
+          process.stdout.write(assistantText);
+        });
+      }
       resolve({ code, output });
     });
   });
@@ -213,4 +249,43 @@ function buildChildEnv() {
   }
 
   return env;
+}
+
+function flushClaudeJsonLines(buffer, onText) {
+  const lines = buffer.split(NEWLINE_PATTERN);
+  const remainder = lines.pop() ?? "";
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      continue;
+    }
+
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    const text = extractClaudeAssistantText(event);
+    if (text) {
+      onText(text);
+    }
+  }
+
+  return remainder;
+}
+
+function extractClaudeAssistantText(event) {
+  if (event.type === "stream_event") {
+    if (event.event?.type === "content_block_delta") {
+      return event.event?.delta?.text ?? "";
+    }
+
+    if (event.event?.type === "content_block_stop") {
+      return "\n";
+    }
+  }
+
+  return "";
 }
